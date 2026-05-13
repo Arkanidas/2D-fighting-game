@@ -30,6 +30,10 @@ public class PlayerMovement : MonoBehaviour
     private bool jumpQueued;
     private bool isGrounded;
 
+    public Vector2 MoveInput => moveInput;
+    public Vector2 Velocity => rb != null ? rb.linearVelocity : Vector2.zero;
+    public bool IsGrounded => isGrounded;
+
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
