@@ -83,13 +83,22 @@ public class PlayerMovement : MonoBehaviour
     private void ApplyHorizontalMovement()
     {
         float targetSpeed = moveInput.x * moveSpeed;
-        float speedDifference = targetSpeed - rb.linearVelocity.x;
 
-        float control = isGrounded ? 1f : airControlMultiplier;
-        float rate = Mathf.Abs(targetSpeed) > 0.01f ? acceleration : deceleration;
-        float movement = speedDifference * rate * control * Time.fixedDeltaTime;
+        if (Mathf.Abs(moveInput.x) > 0.01f)
+        {
+            float control = isGrounded ? 1f : airControlMultiplier;
+            rb.linearVelocity = new Vector2(targetSpeed * control, rb.linearVelocity.y);
+            return;
+        }
 
-        rb.linearVelocity = new Vector2(rb.linearVelocity.x + movement, rb.linearVelocity.y);
+        if (isGrounded)
+        {
+            rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+            return;
+        }
+
+        float newSpeed = Mathf.MoveTowards(rb.linearVelocity.x, 0f, deceleration * Time.fixedDeltaTime);
+        rb.linearVelocity = new Vector2(newSpeed, rb.linearVelocity.y);
     }
 
     private void ApplyJump()
