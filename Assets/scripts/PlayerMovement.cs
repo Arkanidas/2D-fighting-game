@@ -4,13 +4,11 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(Rigidbody2D))]
 [RequireComponent(typeof(PlayerInput))]
 [RequireComponent(typeof(BoxCollider2D))]
+[RequireComponent(typeof(Animator))]
 public class PlayerMovement : MonoBehaviour
 {
     [Header("Movement")]
     [SerializeField] private float moveSpeed = 8f;
-    [SerializeField] private float acceleration = 80f;
-    [SerializeField] private float deceleration = 100f;
-    [SerializeField] private float airControlMultiplier = 0.75f;
 
     [Header("Jump")]
     [SerializeField] private float jumpForce = 14f;
@@ -21,8 +19,13 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float groundCheckRadius = 0.15f;
     [SerializeField] private LayerMask groundLayer;
 
+    [Header("Visual Flip")]
+    [SerializeField] private Transform visualRoot;
+
     private Rigidbody2D rb;
     private PlayerInput playerInput;
+    private Animator animator;
+
     private InputAction moveAction;
     private InputAction jumpAction;
 
@@ -30,14 +33,14 @@ public class PlayerMovement : MonoBehaviour
     private bool jumpQueued;
     private bool isGrounded;
 
-    public Vector2 MoveInput => moveInput;
-    public Vector2 Velocity => rb != null ? rb.linearVelocity : Vector2.zero;
-    public bool IsGrounded => isGrounded;
+    private bool facingRight = true;
 
     private void Awake()
     {
         rb = GetComponent<Rigidbody2D>();
         playerInput = GetComponent<PlayerInput>();
+        animator = GetComponent<Animator>();
+
         CacheActions();
     }
 
@@ -45,32 +48,25 @@ public class PlayerMovement : MonoBehaviour
     {
         CacheActions();
 
-        if (jumpAction == null)
-        {
-            enabled = false;
-            return;
-        }
-
-        jumpAction.performed += OnJumpPerformed;
+        if (jumpAction != null)
+            jumpAction.performed += OnJumpPerformed;
     }
 
     private void OnDisable()
     {
         if (jumpAction != null)
-        {
             jumpAction.performed -= OnJumpPerformed;
-        }
     }
 
     private void Update()
     {
-        if (moveAction == null)
-        {
-            return;
-        }
-
         moveInput = moveAction.ReadValue<Vector2>();
+
         CheckGrounded();
+
+        HandleFlip();
+
+        UpdateAnimator();
     }
 
     private void FixedUpdate()
@@ -82,23 +78,10 @@ public class PlayerMovement : MonoBehaviour
 
     private void ApplyHorizontalMovement()
     {
-        float targetSpeed = moveInput.x * moveSpeed;
-
-        if (Mathf.Abs(moveInput.x) > 0.01f)
-        {
-            float control = isGrounded ? 1f : airControlMultiplier;
-            rb.linearVelocity = new Vector2(targetSpeed * control, rb.linearVelocity.y);
-            return;
-        }
-
-        if (isGrounded)
-        {
-            rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
-            return;
-        }
-
-        float newSpeed = Mathf.MoveTowards(rb.linearVelocity.x, 0f, deceleration * Time.fixedDeltaTime);
-        rb.linearVelocity = new Vector2(newSpeed, rb.linearVelocity.y);
+        rb.linearVelocity = new Vector2(
+            moveInput.x * moveSpeed,
+            rb.linearVelocity.y
+        );
     }
 
     private void ApplyJump()
@@ -109,7 +92,11 @@ public class PlayerMovement : MonoBehaviour
             return;
         }
 
-        rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
+        rb.linearVelocity = new Vector2(
+            rb.linearVelocity.x,
+            jumpForce
+        );
+
         jumpQueued = false;
         isGrounded = false;
     }
@@ -118,19 +105,46 @@ public class PlayerMovement : MonoBehaviour
     {
         if (rb.linearVelocity.y < -maxFallSpeed)
         {
-            rb.linearVelocity = new Vector2(rb.linearVelocity.x, -maxFallSpeed);
+            rb.linearVelocity = new Vector2(
+                rb.linearVelocity.x,
+                -maxFallSpeed
+            );
         }
     }
 
     private void CheckGrounded()
     {
-        if (groundCheck == null)
-        {
-            isGrounded = false;
-            return;
-        }
+        if (groundCheck == null) return;
 
-        isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
+        isGrounded = Physics2D.OverlapCircle(
+            groundCheck.position,
+            groundCheckRadius,
+            groundLayer
+        );
+    }
+
+    private void HandleFlip()
+    {
+        if (moveInput.x > 0 && !facingRight)
+            Flip();
+
+        else if (moveInput.x < 0 && facingRight)
+            Flip();
+    }
+
+    private void Flip()
+    {
+        facingRight = !facingRight;
+
+        Vector3 scale = visualRoot.localScale;
+        scale.x *= -1;
+        visualRoot.localScale = scale;
+    }
+
+    private void UpdateAnimator()
+    {
+        animator.SetFloat("Speed", Mathf.Abs(moveInput.x));
+        animator.SetBool("Grounded", isGrounded);
     }
 
     private void OnJumpPerformed(InputAction.CallbackContext context)
@@ -140,31 +154,18 @@ public class PlayerMovement : MonoBehaviour
 
     private void CacheActions()
     {
-        if (playerInput == null || playerInput.actions == null)
-        {
-            Debug.LogError("PlayerMovement requires a PlayerInput component with an assigned Actions asset.", this);
-            enabled = false;
-            return;
-        }
-
         moveAction = playerInput.actions["Move"];
         jumpAction = playerInput.actions["Jump"];
-
-        if (moveAction == null || jumpAction == null)
-        {
-            Debug.LogError("PlayerMovement could not find Move and Jump actions in the PlayerInput actions asset.", this);
-            enabled = false;
-        }
     }
 
     private void OnDrawGizmosSelected()
     {
-        if (groundCheck == null)
-        {
-            return;
-        }
+        if (groundCheck == null) return;
 
         Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(groundCheck.position, groundCheckRadius);
+        Gizmos.DrawWireSphere(
+            groundCheck.position,
+            groundCheckRadius
+        );
     }
 }
