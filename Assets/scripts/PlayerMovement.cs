@@ -11,7 +11,7 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField] private float moveSpeed = 8f;
 
     [Header("Jump")]
-    [SerializeField] private float jumpForce = 14f;
+    [SerializeField] private float jumpForce = 15f;
     [SerializeField] private float maxFallSpeed = 20f;
 
     [Header("Ground Check")]
